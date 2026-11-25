@@ -17,16 +17,16 @@ const POLL_MS = 8000;
 fs.mkdirSync(VIDEO_DIR, { recursive: true });
 
 if (!API_KEY) {
-  console.warn("⚠  GEMINI_API_KEY is not set. Get one at https://aistudio.google.com/apikey");
+  console.log("ℹ  No GEMINI_API_KEY env var — paste your key in the app page instead.");
 }
 
 /** In-memory job store: id -> job */
 const jobs = new Map();
 
-async function googleFetch(url, opts = {}) {
+async function googleFetch(url, key, opts = {}) {
   const res = await fetch(url, {
     ...opts,
-    headers: { "x-goog-api-key": API_KEY, ...(opts.body ? { "Content-Type": "application/json" } : {}) },
+    headers: { "x-goog-api-key": key, ...(opts.body ? { "Content-Type": "application/json" } : {}) },
   });
   if (!res.ok) {
     let msg = `${res.status} ${res.statusText}`;
@@ -49,7 +49,7 @@ async function startGeneration(job) {
   if (job.durationSeconds) parameters.durationSeconds = Number(job.durationSeconds);
   if (job.negativePrompt) parameters.negativePrompt = job.negativePrompt;
 
-  const res = await googleFetch(`${API_BASE}/models/${encodeURIComponent(job.model)}:predictLongRunning`, {
+  const res = await googleFetch(`${API_BASE}/models/${encodeURIComponent(job.model)}:predictLongRunning`, job.apiKey, {
     method: "POST",
     body: JSON.stringify({ instances: [instance], parameters }),
   });
@@ -62,7 +62,7 @@ async function startGeneration(job) {
 
 async function pollJob(job) {
   try {
-    const res = await googleFetch(`${API_BASE}/${job.operation}`);
+    const res = await googleFetch(`${API_BASE}/${job.operation}`, job.apiKey);
     const op = await res.json();
     if (!op.done) {
       setTimeout(() => pollJob(job), POLL_MS);
@@ -79,7 +79,7 @@ async function pollJob(job) {
     }
 
     job.status = "downloading";
-    const vid = await googleFetch(uri);
+    const vid = await googleFetch(uri, job.apiKey);
     const file = `${job.id}.mp4`;
     fs.writeFileSync(path.join(VIDEO_DIR, file), Buffer.from(await vid.arrayBuffer()));
     job.videoUrl = `/videos/${file}`;
@@ -122,7 +122,7 @@ function serveStatic(res, baseDir, relPath) {
   fs.createReadStream(filePath).pipe(res);
 }
 
-const publicJob = ({ image, operation, ...rest }) => rest;
+const publicJob = ({ image, operation, apiKey, ...rest }) => rest;
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -134,8 +134,9 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, [...jobs.values()].map(publicJob).reverse());
     }
     if (req.method === "POST" && url.pathname === "/api/generate") {
-      if (!API_KEY) return sendJson(res, 400, { error: "Server has no GEMINI_API_KEY set." });
       const body = JSON.parse(await readBody(req));
+      const apiKey = String(req.headers["x-user-api-key"] || "").trim() || API_KEY;
+      if (!apiKey) return sendJson(res, 400, { error: "Please paste your Gemini API key at the top of the form." });
       if (!body.prompt?.trim()) return sendJson(res, 400, { error: "Prompt is required." });
 
       const job = {
@@ -148,6 +149,7 @@ const server = http.createServer(async (req, res) => {
         durationSeconds: body.durationSeconds,
         hasImage: Boolean(body.image),
         image: body.image,
+        apiKey,
         status: "queued",
         createdAt: Date.now(),
       };

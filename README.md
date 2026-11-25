@@ -10,16 +10,13 @@ A small web app for making AI videos with **Google Veo**, the model that powers 
 - Runs several jobs at once with live status, an inline player and downloads
 - Saves videos to `./videos/`
 
-## Setup
-1. Get a Gemini API key from https://aistudio.google.com/apikey. Veo needs a paid (billing-enabled) project.
-2. Run it (Node 18+):
+## Setup (easy way)
+1. Install **Node.js** (LTS) from https://nodejs.org
+2. Download this repo: green **Code** button → **Download ZIP**, then unzip it.
+3. Double-click **`start.bat`** (Windows) or **`start.command`** (Mac). The app opens at http://localhost:3000
+4. Paste your Gemini API key (from https://aistudio.google.com/apikey, billing on) into the box at the top. It's remembered in your browser.
 
-```bash
-cd flow-video-studio
-GEMINI_API_KEY=your_key_here npm start
-```
-
-3. Open http://localhost:3000
+Advanced: you can also set `GEMINI_API_KEY` as an env var and run `npm start`; the key box is then hidden.
 
 ## How it works
 - `POST /models/{model}:predictLongRunning` starts the generation.

@@ -54,7 +54,10 @@
 </header>
 <main>
   <form id="form" class="panel">
-    <div id="keyWarn" class="warn" hidden>No API key on the server. Start it with <code>GEMINI_API_KEY=… npm start</code>.</div>
+    <label id="keyBox">Gemini API key
+      <input id="apiKey" type="password" placeholder="AIza…" autocomplete="off" />
+      <span style="font-size:12px">Get one free at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a> (billing must be on for Veo). Saved only in this browser.</span>
+    </label>
     <label>Prompt
       <textarea id="prompt" placeholder="A cinematic drone shot over a misty mountain lake at sunrise, golden light, gentle ambient music" required></textarea>
     </label>
@@ -102,7 +105,9 @@
 const $ = (id) => document.getElementById(id);
 let image = null;
 
-fetch("/api/status").then(r => r.json()).then(s => { $("keyWarn").hidden = s.hasKey; });
+fetch("/api/status").then(r => r.json()).then(s => { if (s.hasKey) $("keyBox").hidden = true; });
+try { $("apiKey").value = localStorage.getItem("geminiKey") || ""; } catch {}
+$("apiKey").oninput = () => { try { localStorage.setItem("geminiKey", $("apiKey").value.trim()); } catch {} };
 
 $("drop").onclick = () => $("file").click();
 $("file").onchange = () => {
@@ -125,7 +130,7 @@ $("form").onsubmit = async (e) => {
   try {
     const res = await fetch("/api/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-user-api-key": $("apiKey").value.trim() },
       body: JSON.stringify({
         prompt: $("prompt").value,
         negativePrompt: $("negativePrompt").value,
