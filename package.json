@@ -1,0 +1,13 @@
+{
+  "name": "flow-video-studio",
+  "version": "1.0.0",
+  "description": "Generate AI videos with Google Veo (the model behind Google Flow) via the Gemini API",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

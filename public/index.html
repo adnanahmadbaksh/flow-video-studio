@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flow Video Studio</title>
+<style>
+  :root {
+    --bg: #0d0f14; --panel: #161a22; --line: #262c38; --text: #e8ebf1; --muted: #8b93a5;
+    --accent: #7c9cff; --accent-2: #a78bfa; --err: #ff6b6b; --ok: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  header h1 { margin: 0; font-size: 20px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header .pill { font-size: 12px; padding: 2px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  main { display: grid; grid-template-columns: 380px 1fr; gap: 24px; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  form { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 24px; }
+  label { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+  textarea, input, select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; width: 100%; }
+  textarea { resize: vertical; min-height: 110px; }
+  textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button { cursor: pointer; border: 0; border-radius: 10px; padding: 12px; font: 600 15px system-ui; color: #0d0f14; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .drop { border: 1px dashed var(--line); border-radius: 10px; padding: 12px; text-align: center; color: var(--muted); cursor: pointer; font-size: 13px; }
+  .drop img { max-width: 100%; max-height: 140px; border-radius: 8px; display: block; margin: 0 auto 6px; }
+  .warn { background: #2a1d10; border: 1px solid #5c3d14; color: #ffcf8a; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+  .media { aspect-ratio: 16/9; background: #000; display: grid; place-items: center; }
+  .media.portrait { aspect-ratio: 9/16; max-height: 520px; }
+  .media video { width: 100%; height: 100%; object-fit: contain; }
+  .card .body { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .card .prompt { font-size: 14px; }
+  .meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .status { font-weight: 600; }
+  .status.done { color: var(--ok); } .status.error { color: var(--err); }
+  .actions { display: flex; gap: 8px; }
+  .actions a, .actions .ghost { font-size: 13px; color: var(--text); background: transparent; border: 1px solid var(--line); padding: 6px 12px; border-radius: 8px; text-decoration: none; font-weight: 500; }
+  .spinner { width: 42px; height: 42px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+  .empty { color: var(--muted); text-align: center; padding: 60px 20px; border: 1px dashed var(--line); border-radius: 14px; }
+  .err { color: var(--err); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 Flow Video Studio</h1>
+  <span class="pill">Powered by Google Veo</span>
+</header>
+<main>
+  <form id="form" class="panel">
+    <div id="keyWarn" class="warn" hidden>No API key on the server. Start it with <code>GEMINI_API_KEY=… npm start</code>.</div>
+    <label>Prompt
+      <textarea id="prompt" placeholder="A cinematic drone shot over a misty mountain lake at sunrise, golden light, gentle ambient music" required></textarea>
+    </label>
+    <label>Negative prompt (optional)
+      <input id="negativePrompt" placeholder="blurry, low quality, text, watermark" />
+    </label>
+    <label>Model
+      <select id="model">
+        <option value="veo-3.1-generate-preview">Veo 3.1 (quality, with audio)</option>
+        <option value="veo-3.1-fast-generate-preview">Veo 3.1 Fast</option>
+        <option value="veo-3.0-generate-001">Veo 3</option>
+        <option value="veo-3.0-fast-generate-001">Veo 3 Fast</option>
+        <option value="veo-2.0-generate-001">Veo 2 (no audio)</option>
+      </select>
+    </label>
+    <label>Custom model ID (overrides above)
+      <input id="customModel" placeholder="e.g. a newer Veo model" />
+    </label>
+    <div class="row">
+      <label>Aspect ratio
+        <select id="aspectRatio"><option value="16:9">16:9 Landscape</option><option value="9:16">9:16 Portrait</option></select>
+      </label>
+      <label>Resolution
+        <select id="resolution"><option value="720p">720p</option><option value="1080p">1080p</option><option value="">Default</option></select>
+      </label>
+    </div>
+    <label>Duration
+      <select id="durationSeconds"><option value="8">8 seconds</option><option value="6">6 seconds</option><option value="4">4 seconds</option><option value="">Model default</option></select>
+    </label>
+    <label>Starting frame (optional, image-to-video)
+      <div class="drop" id="drop">Click to choose an image</div>
+      <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden />
+    </label>
+    <button id="submit" type="submit">Generate video</button>
+    <div id="formErr" class="err"></div>
+  </form>
+
+  <section>
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty">Your generated videos will appear here.<br/>Generation usually takes 1–5 minutes.</div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let image = null;
+
+fetch("/api/status").then(r => r.json()).then(s => { $("keyWarn").hidden = s.hasKey; });
+
+$("drop").onclick = () => $("file").click();
+$("file").onchange = () => {
+  const f = $("file").files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const [meta, data] = reader.result.split(",");
+    image = { data, mimeType: meta.match(/data:(.*);/)[1] };
+    $("drop").innerHTML = `<img src="${reader.result}" alt="" />Click to change · <a href="#" id="clearImg">remove</a>`;
+    $("clearImg").onclick = (e) => { e.preventDefault(); e.stopPropagation(); image = null; $("file").value = ""; $("drop").textContent = "Click to choose an image"; };
+  };
+  reader.readAsDataURL(f);
+};
+
+$("form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("formErr").textContent = "";
+  $("submit").disabled = true;
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: $("prompt").value,
+        negativePrompt: $("negativePrompt").value,
+        model: $("customModel").value.trim() || $("model").value,
+        aspectRatio: $("aspectRatio").value,
+        resolution: $("resolution").value,
+        durationSeconds: $("durationSeconds").value,
+        image,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    refresh();
+  } catch (err) {
+    $("formErr").textContent = err.message;
+  } finally {
+    $("submit").disabled = false;
+  }
+};
+
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const labels = { queued: "Queued", generating: "Generating…", downloading: "Downloading…", done: "Done", error: "Failed" };
+const rendered = new Map();
+
+function cardHtml(j) {
+  const portrait = j.aspectRatio === "9:16" ? "portrait" : "";
+  const elapsed = Math.round(((j.finishedAt || Date.now()) - j.createdAt) / 1000);
+  const media = j.status === "done"
+    ? `<video src="${j.videoUrl}" controls loop playsinline></video>`
+    : j.status === "error"
+      ? `<div class="err" style="padding:20px">${esc(j.error)}</div>`
+      : `<div class="loading"><div class="spinner"></div>${labels[j.status]} ${elapsed}s</div>`;
+  return `
+    <div class="media ${portrait}">${media}</div>
+    <div class="body">
+      <div class="prompt">${esc(j.prompt)}</div>
+      <div class="meta"><span class="status ${j.status}">${labels[j.status]}</span>· ${esc(j.model)} · ${esc(j.aspectRatio || "")} ${j.hasImage ? "· 🖼 image" : ""}</div>
+      <div class="actions">
+        ${j.status === "done" ? `<a href="${j.videoUrl}" download="flow-${j.id.slice(0,8)}.mp4">Download</a>` : ""}
+        <button class="ghost" data-del="${j.id}">Delete</button>
+      </div>
+    </div>`;
+}
+
+async function refresh() {
+  const list = await fetch("/api/jobs").then(r => r.json());
+  $("empty").hidden = list.length > 0;
+  const grid = $("grid");
+  const ids = new Set(list.map(j => j.id));
+  for (const [id, el] of rendered) if (!ids.has(id)) { el.remove(); rendered.delete(id); }
+  list.forEach((j, i) => {
+    let el = rendered.get(j.id);
+    const key = j.status === "done" || j.status === "error" ? j.status : j.status + Math.floor(Date.now() / 1000);
+    if (!el) { el = document.createElement("div"); el.className = "card"; rendered.set(j.id, el); }
+    if (el.dataset.key !== key) { el.innerHTML = cardHtml(j); el.dataset.key = key; }
+    if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);
+  });
+}
+
+$("grid").onclick = async (e) => {
+  const id = e.target.dataset.del;
+  if (!id) return;
+  await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+  refresh();
+};
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>
