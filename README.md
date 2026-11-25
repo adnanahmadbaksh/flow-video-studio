@@ -23,7 +23,7 @@ Advanced: you can also set `GEMINI_API_KEY` as an env var and run `npm start`; t
 - The server polls the returned operation every 8 seconds until it is done.
 - It then downloads the MP4 and serves it to the UI.
 
-The API key stays on the server and is never sent to the browser.
+The key is stored only in your own browser and sent only to your local server, which passes it to Google. It is never saved to disk or shown in the job list.
 
 ## Notes
 - A generation usually takes 1 to 5 minutes.
